@@ -1,22 +1,38 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Container, VStack, Text, Box, Input, Button, HStack, IconButton } from "@chakra-ui/react";
 import { FaThumbsUp, FaThumbsDown, FaLaugh, FaSadTear } from "react-icons/fa";
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.SUPABASE_PROJECT_URL;
+const supabaseKey = process.env.SUPABASE_API_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const Index = () => {
   const [posts, setPosts] = useState([]);
   const [newPost, setNewPost] = useState("");
 
-  const addPost = () => {
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
+  const fetchPosts = async () => {
+    const { data } = await supabase.from('posts').select('*');
+    setPosts(data);
+  };
+
+  const addPost = async () => {
     if (newPost.trim() !== "") {
-      setPosts([...posts, { text: newPost, reactions: { like: 0, dislike: 0, laugh: 0, sad: 0 } }]);
+      const { data } = await supabase.from('posts').insert([{ title: newPost, body: newPost }]);
+      setPosts([...posts, ...data]);
       setNewPost("");
     }
   };
 
-  const addReaction = (index, reaction) => {
-    const updatedPosts = [...posts];
-    updatedPosts[index].reactions[reaction]++;
-    setPosts(updatedPosts);
+  const addReaction = async (postId, reaction) => {
+    const { data } = await supabase
+      .from('reactions')
+      .insert([{ post_id: postId, emoji: reaction }]);
+    fetchPosts();
   };
 
   return (
@@ -32,34 +48,34 @@ const Index = () => {
           <Button onClick={addPost} colorScheme="blue">Post</Button>
         </HStack>
         <VStack spacing={4} w="100%">
-          {posts.map((post, index) => (
-            <Box key={index} p={4} borderWidth="1px" borderRadius="md" w="100%">
-              <Text>{post.text}</Text>
+          {posts.map((post) => (
+            <Box key={post.id} p={4} borderWidth="1px" borderRadius="md" w="100%">
+              <Text>{post.body}</Text>
               <HStack spacing={2} mt={2}>
                 <IconButton
                   aria-label="Like"
                   icon={<FaThumbsUp />}
-                  onClick={() => addReaction(index, "like")}
+                  onClick={() => addReaction(post.id, "👍")}
                 />
-                <Text>{post.reactions.like}</Text>
+                <Text>{post.reactions?.filter(r => r.emoji === "👍").length || 0}</Text>
                 <IconButton
                   aria-label="Dislike"
                   icon={<FaThumbsDown />}
-                  onClick={() => addReaction(index, "dislike")}
+                  onClick={() => addReaction(post.id, "👎")}
                 />
-                <Text>{post.reactions.dislike}</Text>
+                <Text>{post.reactions?.filter(r => r.emoji === "👎").length || 0}</Text>
                 <IconButton
                   aria-label="Laugh"
                   icon={<FaLaugh />}
-                  onClick={() => addReaction(index, "laugh")}
+                  onClick={() => addReaction(post.id, "😂")}
                 />
-                <Text>{post.reactions.laugh}</Text>
+                <Text>{post.reactions?.filter(r => r.emoji === "😂").length || 0}</Text>
                 <IconButton
                   aria-label="Sad"
                   icon={<FaSadTear />}
-                  onClick={() => addReaction(index, "sad")}
+                  onClick={() => addReaction(post.id, "😢")}
                 />
-                <Text>{post.reactions.sad}</Text>
+                <Text>{post.reactions?.filter(r => r.emoji === "😢").length || 0}</Text>
               </HStack>
             </Box>
           ))}
